@@ -1,0 +1,10 @@
+{
+  "id": "chrome",
+  "name": "Browser",
+  "description": "Chrome, Edge, Firefox: hides the tab strip and address bar.",
+  "fps": 30,
+  "opacity": 1.0,
+  "default_size": { "width": 560, "height": 340 },
+  "crop": { "top": 88 },
+  "match_apps": ["google-chrome", "chromium", "chrome", "msedge", "firefox", "com.google.Chrome", "org.mozilla.firefox"]
+}

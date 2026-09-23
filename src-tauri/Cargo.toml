@@ -1,0 +1,40 @@
+[package]
+name = "pip-anywhere"
+version = "0.1.0"
+description = "Picture-in-Picture for any desktop application"
+authors = ["Hoang Duong"]
+license = "MIT"
+edition = "2021"
+
+[lib]
+# The `_lib` suffix avoids a name clash with the bin target on Windows (cargo#8519).
+name = "pip_anywhere_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+log = "0.4"
+env_logger = "0.11"
+# PiP child process: native window + CPU renderer
+winit = "0.30"
+softbuffer = "0.4"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ashpd = { version = "0.12", default-features = false, features = ["tokio"] }
+pipewire = "0.9"
+tokio = { version = "1", features = ["rt", "net", "time", "sync"] }
+x11rb = "0.13"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

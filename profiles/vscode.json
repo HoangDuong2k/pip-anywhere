@@ -1,0 +1,10 @@
+{
+  "id": "vscode",
+  "name": "VS Code",
+  "description": "VS Code: hides the title bar and the side bar.",
+  "fps": 20,
+  "opacity": 1.0,
+  "default_size": { "width": 560, "height": 340 },
+  "crop": { "top": 35, "left": 300, "bottom": 22 },
+  "match_apps": ["code", "code-oss", "Code", "com.microsoft.VSCode"]
+}

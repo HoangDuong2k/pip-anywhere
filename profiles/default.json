@@ -1,0 +1,10 @@
+{
+  "id": "default",
+  "name": "Any window",
+  "description": "Shows the whole window without cropping.",
+  "fps": 30,
+  "opacity": 1.0,
+  "default_size": { "width": 480, "height": 300 },
+  "crop": {},
+  "match_apps": []
+}
