@@ -77,8 +77,8 @@ including tests that pin a real window and change its opacity.
 opens a window, and checks through a test-only probe extension that the compositor really pins it,
 applies opacity, and keeps the opacity after minimise/restore. Your desktop is not touched.
 
-Earlier approaches are kept on the `archive/desktop-app` branch (desktop app) and in git history
-(per-element Document PiP extension).
+Earlier approaches (a Tauri desktop app, then a per-element Document PiP extension) are in the git
+history.
 
 ## License
 
