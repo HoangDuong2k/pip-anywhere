@@ -1,25 +1,14 @@
 {
   "name": "pip-anywhere",
+  "version": "0.3.0",
   "private": true,
-  "version": "0.1.0",
-  "type": "module",
+  "description": "Keep a browser window always on top of other apps and make it see-through (Windows, Linux/GNOME).",
+  "license": "MIT",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "tauri": "tauri"
-  },
-  "dependencies": {
-    "@tauri-apps/api": "^2",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
-  },
-  "devDependencies": {
-    "@tauri-apps/cli": "^2",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
-    "@vitejs/plugin-react": "^6.0.2",
-    "typescript": "~6.0.3",
-    "vite": "^8.0.16"
+    "test": "node --test tests/ && python3 -m unittest discover -s tests",
+    "test:gnome": "tests/gnome/run.sh",
+    "zip": "rm -f pip-anywhere.zip && cd extension && zip -qr ../pip-anywhere.zip .",
+    "test:windows-host": "cd native/windows && cargo test",
+    "package:windows": "scripts/build-windows.sh"
   }
 }

@@ -6,42 +6,75 @@ on:
   pull_request:
 
 jobs:
-  frontend:
+  extension-and-linux-host:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npm run build
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Syntax checks
+        run: |
+          for f in extension/*.js extension/*/*.js; do node --check "$f"; done
+          bash -n scripts/*.sh tests/gnome/run.sh
+          node -e "JSON.parse(require('fs').readFileSync('extension/manifest.json', 'utf8'))"
+      - run: npm test
+      - run: npm run zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pip-anywhere-extension
+          path: pip-anywhere.zip
 
-  rust:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+  windows-host:
+    runs-on: windows-latest
     defaults:
       run:
-        working-directory: src-tauri
+        working-directory: native/windows
     steps:
       - uses: actions/checkout@v4
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
-            libxdo-dev libssl-dev libpipewire-0.3-dev libclang-dev
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
-      # tauri::generate_context! needs the frontend dist directory to exist.
-      - run: mkdir -p ../dist
+          workspaces: native/windows
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
+      # Includes the Win32 tests: pin/unpin and opacity on a real window.
       - run: cargo test
+      - run: cargo build --release
+      - name: Smoke test the host over native messaging
+        shell: pwsh
+        run: |
+          $req = [Text.Encoding]::UTF8.GetBytes('{"cmd":"ping"}')
+          $msg = [BitConverter]::GetBytes([uint32]$req.Length) + $req
+          $psi = [Diagnostics.ProcessStartInfo]::new("target\release\pip-anywhere-host.exe")
+          $psi.RedirectStandardInput = $true; $psi.RedirectStandardOutput = $true; $psi.UseShellExecute = $false
+          $p = [Diagnostics.Process]::Start($psi)
+          $p.StandardInput.BaseStream.Write($msg, 0, $msg.Length); $p.StandardInput.Close()
+          $out = $p.StandardOutput.BaseStream; $len = [byte[]]::new(4); [void]$out.Read($len, 0, 4)
+          $body = [byte[]]::new([BitConverter]::ToUInt32($len, 0)); [void]$out.Read($body, 0, $body.Length)
+          $reply = [Text.Encoding]::UTF8.GetString($body); $reply
+          if ($reply -notmatch '"ok":true') { exit 1 }
+      - name: Check installer scripts parse
+        shell: pwsh
+        run: |
+          foreach ($f in '..\..\scripts\windows\install.ps1', '..\..\scripts\windows\uninstall.ps1') {
+            $errors = $null
+            [void][Management.Automation.Language.Parser]::ParseFile((Resolve-Path $f), [ref]$null, [ref]$errors)
+            if ($errors.Count) { $errors; exit 1 }
+          }
+      - name: Package
+        shell: pwsh
+        run: |
+          $out = "..\..\dist\pip-anywhere-windows"
+          New-Item -ItemType Directory -Force $out | Out-Null
+          Copy-Item target\release\pip-anywhere-host.exe $out
+          Copy-Item ..\..\scripts\windows\* $out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pip-anywhere-windows
+          path: dist/pip-anywhere-windows
