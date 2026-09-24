@@ -1,34 +1,20 @@
 # Roadmap
 
-## ✅ Phase 0: Setup
-Tauri 2 + React/TS scaffold, repo layout, docs, CI.
+## ✅ v0.3: Whole-window PiP on GNOME
+- [x] Always on top for the current browser window (popup switch, Alt+Shift+P)
+- [x] Real window opacity 20–100% (popup slider, Alt+Shift+↑/↓), kept across minimise/restore
+- [x] Native messaging host + GNOME Shell extension, per-user installer and uninstaller
+- [x] Unit tests; end-to-end test in a headless GNOME Shell
 
-## ✅ Phase 1: Linux MVP (Wayland)
-- [x] Window picker via xdg-desktop-portal ScreenCast, PipeWire frames (BGRx/BGRA/RGBx/RGBA, shared memory)
-- [x] Borderless always-on-top PiP (XWayland), drag, edge resize, opacity (control panel slider), close button / Esc / middle-click
-- [x] Restore tokens: reopen the same window without the dialog; restore PiPs open at quit with geometry and opacity
-- [x] Profiles: Any window, Browser, Terminal, Files, VS Code
-- [x] Tray menu, control panel, `--pop <profile>` through single instance
+## ✅ v0.4: Windows
+- [x] Native host in Rust (`pip-anywhere-host.exe`): always on top + opacity via Win32
+- [x] Per-user installer (`install.cmd`), uninstaller, CI build and Win32 tests on windows-latest
+- [x] Popup shows setup steps for the current OS
 
-## Phase 2: Profiles & UX
-- [ ] Drag-select a crop region directly on the PiP, save as a custom profile
-- [ ] Profile editor in the control panel (user profiles in the config dir)
-- [ ] Snap to screen corners, "hide when hovered" mode
-- [ ] Pause capture while the PiP is minimised or fully transparent
-- [ ] Click-through mode
-
-## Phase 3: Windows
-- [ ] Window list (`EnumWindows`) with icons and process names, automatic profile matching
-- [ ] `DwmRegisterThumbnail` rendering (crop via `rcSource`), near-zero CPU
-- [ ] Opacity (`SetLayeredWindowAttributes`), double-click to focus the source (`SetForegroundWindow`)
-- [ ] Global shortcut (`tauri-plugin-global-shortcut`)
-
-## Phase 4: macOS
-- [ ] ScreenCaptureKit (`SCShareableContent`, `SCStream`), Screen Recording permission flow
-- [ ] Automatic profile matching by bundle id, focus the source via `NSRunningApplication.activate`
-
-## Phase 5: Polish
-- [ ] wgpu renderer, zero-copy DMA-BUF import on Linux
-- [ ] Native X11 window list (no portal dialog on X11 sessions)
-- [ ] Packages (.deb, AppImage, .msi, .dmg), auto-update, signing
-- [ ] Forward clicks and scroll to the source window where the platform allows it
+## Next
+- [ ] Signed Windows build and an MSI/winget package (unsigned exes can trigger SmartScreen)
+- [ ] KDE Plasma helper (KWin script: `keepAbove`, `opacity`)
+- [ ] Toolbar badge showing when the current window is pinned
+- [ ] "Click-through" mode for a pinned, translucent window
+- [ ] Remember opacity per window across browser restarts
+- [ ] Chrome Web Store listing and a packaged helper (.deb) with the GNOME extension on extensions.gnome.org

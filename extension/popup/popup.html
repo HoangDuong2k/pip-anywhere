@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>PiP Anywhere</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <img src="../icons/icon32.png" alt="" width="20" height="20" />
+      <h1>PiP Anywhere</h1>
+    </header>
+
+    <main id="controls" hidden>
+      <p class="window" id="window-title" title=""></p>
+
+      <label class="row switch">
+        <span>
+          <strong>Always on top</strong>
+          <small>Stays above other apps when you click elsewhere.</small>
+        </span>
+        <input id="above" type="checkbox" role="switch" />
+      </label>
+
+      <label class="row opacity">
+        <span><strong>Opacity</strong></span>
+        <input id="opacity" type="range" min="20" max="100" step="5" />
+        <output id="opacity-value"></output>
+      </label>
+    </main>
+
+    <section id="setup" hidden>
+      <p id="setup-message"></p>
+      <div data-os="linux" hidden>
+        <p>Install the helper once, from the project folder:</p>
+        <pre><code>./scripts/install-linux.sh</code></pre>
+        <p class="muted">Then log out and back in (GNOME only loads new extensions at login).</p>
+      </div>
+      <div data-os="win" hidden>
+        <p>Unzip <strong>pip-anywhere-windows.zip</strong> and double-click <strong>install.cmd</strong>.</p>
+        <p class="muted">No administrator rights needed. Then reopen this popup.</p>
+      </div>
+      <div data-os="other" hidden>
+        <p>This operating system is not supported yet. PiP Anywhere works on Windows and on Linux with GNOME.</p>
+      </div>
+    </section>
+
+    <p id="error" role="alert" hidden></p>
+
+    <footer>
+      <span><kbd data-command="toggle-on-top"></kbd> pin · <kbd data-command="opacity-down"></kbd>/<kbd data-command="opacity-up"></kbd> opacity</span>
+      <a href="#" id="shortcuts">Shortcuts</a>
+    </footer>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

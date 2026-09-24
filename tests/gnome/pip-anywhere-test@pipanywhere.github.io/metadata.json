@@ -1,0 +1,7 @@
+{
+  "uuid": "pip-anywhere-test@pipanywhere.github.io",
+  "name": "PiP Anywhere test probe",
+  "description": "Test-only: exposes compositor state of the focused window for tests/gnome/run.sh.",
+  "shell-version": ["45", "46", "47", "48", "49", "50"],
+  "version": 1
+}
