@@ -24,7 +24,7 @@
   "commands": {
     "toggle-on-top": {
       "suggested_key": {
-        "default": "Alt+Shift+P"
+        "default": "Alt+Shift+O"
       },
       "description": "Keep this window on top / release it"
     },

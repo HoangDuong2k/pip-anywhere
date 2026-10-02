@@ -13,10 +13,12 @@ extensions, logins and typing all work.
 
 | Action | Shortcut |
 |---|---|
-| Pin / unpin this window | `Alt+Shift+P` |
+| Pin / unpin this window | `Alt+Shift+O` |
 | More transparent / more opaque | `Alt+Shift+↓` / `Alt+Shift+↑` |
 
-Or click the toolbar icon for a switch and an opacity slider.
+Or click the toolbar icon for a switch and an opacity slider. Chrome now uses `Alt+Shift+P` itself (new
+tab group), so it cannot be the pin shortcut. If a shortcut shows as `—` in the popup, another
+extension already took it: set one at `chrome://extensions/shortcuts`.
 
 ## Why a helper?
 
