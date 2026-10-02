@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "native"))
 import host  # noqa: E402
@@ -21,6 +22,12 @@ class FramingTest(unittest.TestCase):
 
 
 class GdbusParsingTest(unittest.TestCase):
+    def setUp(self):
+        # The runner is faked, so these tests also run where gdbus is not installed (e.g. Windows).
+        patcher = mock.patch.object(host.shutil, "which", return_value="/usr/bin/gdbus")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_parses_string_reply(self):
         # As printed by gdbus: single quotes escaped, backslashes doubled.
         title = "It's \"quoted\" – tab"

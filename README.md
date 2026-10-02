@@ -49,6 +49,14 @@ extension (popup, shortcuts) ─native messaging─┬→ Linux:   native/host.p
 
 To remove the helper: double-click `uninstall.cmd`.
 
+To build the helper on Windows itself (`npm run package:windows` needs bash), with
+[Rust](https://rustup.rs) installed, from this folder in PowerShell:
+
+```powershell
+cargo build --release --manifest-path native\windows\Cargo.toml
+powershell -ExecutionPolicy Bypass -File scripts\windows\install.ps1 -HostExe native\windows\target\release\pip-anywhere-host.exe
+```
+
 ## Install (Linux / GNOME)
 
 1. **Helper** (no sudo). From this folder:
