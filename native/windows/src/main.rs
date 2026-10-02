@@ -110,12 +110,13 @@ fn log(request: &Value, response: &Value, started: Instant) {
         } else {
             response
         };
-        writeln!(
-            f,
-            "{} {}ms {request} -> {response}",
+        let line = format!(
+            "{} {}ms {request} -> {response}\n",
             iso_utc(secs),
             started.elapsed().as_millis()
-        )
+        );
+        // One write per line, so lines from concurrent hosts never interleave in append mode.
+        f.write_all(line.as_bytes())
     })();
 }
 
@@ -123,6 +124,8 @@ fn main() {
     let mut backend = backend();
     let (mut stdin, mut stdout) = (io::stdin().lock(), io::stdout().lock());
     while let Ok(Some(request)) = protocol::read_message(&mut stdin) {
+        #[cfg(windows)]
+        let _lock = win32::HostLock::acquire();
         let started = Instant::now();
         let mut response = protocol::handle(&request, &mut backend);
         if request["cmd"] == "diagnostics" {

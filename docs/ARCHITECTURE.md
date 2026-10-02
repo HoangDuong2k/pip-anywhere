@@ -92,6 +92,9 @@ The Win32 backend (`win32.rs`):
   value across minimise/restore, so nothing needs re-applying. At 100% the layered style is removed
   again (cheaper to draw), but only if we added it. That is recorded with the window property
   `PipAnywhere.Layered`.
+- **One request at a time**: each request holds the named mutex `Local\PipAnywhere.Host`. Chrome
+  starts a host per request, and a pin change racing an opacity change on a Chrome window sometimes
+  left it pinned (about 1 in 100 when sent together). The log lines no longer interleave either.
 - **Registration**: `install.ps1` copies the exe to `%LOCALAPPDATA%\PipAnywhere`, writes the host
   manifest (UTF-8 without BOM) and points
   `HKCU\Software\<browser>\NativeMessagingHosts\com.pipanywhere.host` at it.

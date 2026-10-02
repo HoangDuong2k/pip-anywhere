@@ -6,9 +6,12 @@
 //!   minimise/restore, so nothing has to be re-applied.
 
 use serde_json::{json, Value};
-use windows_sys::Win32::Foundation::{CloseHandle, BOOL, COLORREF, HANDLE, HWND, LPARAM};
+use windows_sys::Win32::Foundation::{
+    CloseHandle, BOOL, COLORREF, HANDLE, HWND, LPARAM, WAIT_ABANDONED, WAIT_OBJECT_0,
+};
 use windows_sys::Win32::System::Threading::{
-    OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
+    CreateMutexW, OpenProcess, QueryFullProcessImageNameW, ReleaseMutex, WaitForSingleObject,
+    PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetAncestor, GetForegroundWindow, GetLayeredWindowAttributes, GetPropW,
@@ -27,6 +30,42 @@ pub struct Win32;
 
 fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+/// Runs requests one at a time across host processes. Chrome starts a host per request, and on a
+/// Chrome window a `set_above:false` racing a `set_opacity` sometimes left the window pinned.
+pub struct HostLock(HANDLE);
+
+impl HostLock {
+    /// Waits up to 2 s for other hosts. `None` (run unlocked) rather than fail the request.
+    pub fn acquire() -> Option<Self> {
+        let name = wide("Local\\PipAnywhere.Host");
+        // SAFETY: `name` is NUL-terminated and outlives the call; null attributes are allowed.
+        unsafe {
+            let mutex = CreateMutexW(std::ptr::null(), 0, name.as_ptr());
+            if mutex.is_null() {
+                return None;
+            }
+            match WaitForSingleObject(mutex, 2000) {
+                // Abandoned: a previous host exited while holding it; we own it now.
+                WAIT_OBJECT_0 | WAIT_ABANDONED => Some(Self(mutex)),
+                _ => {
+                    CloseHandle(mutex);
+                    None
+                }
+            }
+        }
+    }
+}
+
+impl Drop for HostLock {
+    fn drop(&mut self) {
+        // SAFETY: this thread owns the mutex (see `acquire`) and the handle.
+        unsafe {
+            ReleaseMutex(self.0);
+            CloseHandle(self.0);
+        }
+    }
 }
 
 fn target() -> Option<HWND> {
@@ -277,6 +316,8 @@ mod tests {
         assert_eq!(info.opacity, 1.0);
     }
 
+    /// Windows only lets a process with foreground rights make a window topmost, so run the tests
+    /// from the active terminal (CI is fine). The real host has them: Chrome, in front, starts it.
     #[test]
     fn pins_and_releases() {
         let w = TestWindow::new();
@@ -301,6 +342,32 @@ mod tests {
             "layered style should be removed"
         );
         assert_eq!(describe(w.0).opacity, 1.0);
+    }
+
+    #[test]
+    fn host_lock_serialises_hosts() {
+        use std::sync::mpsc;
+        use std::time::{Duration, Instant};
+        // Mutexes are owned per thread, so a second thread stands in for a second host process.
+        let (locked, wait_for_lock) = mpsc::channel();
+        let holder = std::thread::spawn(move || {
+            let _lock = HostLock::acquire().expect("first host gets the lock");
+            locked.send(()).unwrap();
+            std::thread::sleep(Duration::from_millis(300));
+        });
+        wait_for_lock.recv().unwrap();
+        let started = Instant::now();
+        let lock = HostLock::acquire();
+        assert!(
+            lock.is_some(),
+            "second host gets the lock once the first is done"
+        );
+        assert!(
+            started.elapsed() >= Duration::from_millis(200),
+            "second host must wait, waited {:?}",
+            started.elapsed()
+        );
+        holder.join().unwrap();
     }
 
     #[test]
