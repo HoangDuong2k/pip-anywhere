@@ -6,12 +6,16 @@
   --border: #e1e4ea;
   --accent: #3b5bdb;
   --danger: #a4271b;
+  --warn-bg: #fff4d6;
+  --warn-text: #6b4a00;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #1b1d23; --card: #252830; --text: #e8eaef; --muted: #9aa1ad; --border: #333844; --accent: #7c93ff; --danger: #ffb4a9; }
+  :root { --bg: #1b1d23; --card: #252830; --text: #e8eaef; --muted: #9aa1ad; --border: #333844; --accent: #7c93ff; --danger: #ffb4a9; --warn-bg: #3a3016; --warn-text: #ffd98a; }
 }
 * { box-sizing: border-box; }
+/* `.row { display: flex }` and similar rules would otherwise override the hidden attribute. */
+[hidden] { display: none !important; }
 body { width: 300px; margin: 0; padding: 14px; background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, sans-serif; display: grid; gap: 10px; }
 header { display: flex; align-items: center; gap: 8px; }
 h1 { margin: 0; font-size: 15px; }
@@ -37,5 +41,9 @@ code, kbd { font: 11px ui-monospace, monospace; }
 kbd { padding: 1px 4px; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); }
 .muted { color: var(--muted); font-size: 12px; }
 #error { margin: 0; color: var(--danger); font-size: 12px; }
+#warning { margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--warn-bg); color: var(--warn-text); font-size: 12px; }
+.diagnostics { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
+.diagnostics button { font: inherit; color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+.diagnostics button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
 a { color: var(--accent); }

@@ -32,10 +32,15 @@ Chrome starts `host.py` for each `chrome.runtime.sendNativeMessage` call. Messag
 | `{"cmd":"ping"}` | none (returns host version) |
 | `{"cmd":"state"}` | `GetFocused()` |
 | `{"cmd":"set_above","above":true}` | `SetAbove(b)` |
-| `{"cmd":"set_opacity","opacity":0.6}` | `SetOpacity(d)` (clamped to 0.2–1) |
+| `{"cmd":"set_opacity","opacity":0.6,"hover_reveal":true}` | `SetOpacity(d)` (clamped to 0.2–1), then `SetHoverReveal(b)` if `hover_reveal` is given |
+| `{"cmd":"set_hover_reveal","enabled":true}` | `SetHoverReveal(b)` ("Clear on hover"; Windows: `unsupported`) |
+| `{"cmd":"diagnostics"}` | `Diagnostics()` + host details and the last 40 log lines |
 
-Replies are `{"ok":true,"window":{"id","title","wm_class","above","opacity"}}` or
-`{"ok":false,"error","code"}`. `code` is one of `helper_missing`, `unsupported`, `no_window`,
+Replies are `{"ok":true,"window":{"id","title","wm_class","above","opacity"},"versions":{...}}` or
+`{"ok":false,"error","code","versions":{...}}`. `versions` holds `host`, `helper` (the running
+GNOME extension) and `helper_installed` (the one on disk). The popup compares them with
+`REQUIRED_HELPER_VERSION` (`extension/native.js`). It asks the user to reinstall when something is too
+old, or to log out and back in when only the running GNOME extension is old. `code` is one of `helper_missing`, `unsupported`, `no_window`,
 `bad_request`, `error`, and the extension adds `host_missing` when the host is not registered. The host
 calls D-Bus through `gdbus` and parses its GVariant text output with `ast.literal_eval`, since a
 one-string GVariant tuple is also a valid Python literal.
@@ -46,7 +51,24 @@ every request starts a new host process.
 ## GNOME Shell extension
 
 - **Always on top**: `MetaWindow.make_above()` / `unmake_above()`, the same as the window menu's
-  "Always on Top".
+  "Always on Top". Windows pinned through PiP Anywhere are tracked. Other components may unpin them:
+  Ubuntu's Tiling Assistant calls `unmake_above()` whenever it tiles a window. So on `notify::above`
+  the extension pins the window again, before the next frame, until the user unpins it through PiP
+  Anywhere. On every `restacked`, a pinned window that is not in the top layer has its layer
+  recomputed. Both repairs are counted in `Diagnostics().stats` with the last 20 events.
+- **Clear on hover**: one global switch (`SetHoverReveal`). The extension stores the preference in
+  `chrome.storage.sync` and re-sends it with every opacity change, because the GNOME extension keeps
+  no settings across logins. GNOME does not report the pointer entering another app's window, so
+  while the switch is on and at least one translucent window exists, the GNOME extension checks
+  `global.get_pointer()` every 100 ms. It looks for the topmost window under the pointer on the
+  active workspace; popups count as their owner window (`find_root_ancestor()`), so menus and tooltips
+  do not make it flicker. A hovered window eases to 255 in 150 ms and eases back after the pointer
+  has been away for 300 ms. After each `SetOpacity` the chosen value is shown for 1.5 s even under
+  the pointer, so changes made from the browser popup or the shortcuts are visible.
+- **Diagnostics**: shell version, enabled extensions, focus, repair stats, and the full window stack
+  (top first, with layer, above, maximised, fullscreen, workspace, monitor, X11/Wayland), plus the
+  window actors' drawing order. If a pinned window is covered, comparing `stack` with `actors` shows
+  whether GNOME stacks the other window higher or only draws it on top.
 - **Opacity**: sets `opacity` (0–255) on the window's compositor actor. GNOME resets it to 255 at the
   end of its window animations (`_minimizeWindowDone`, `_unminimizeWindowDone`, map, ...), so the
   extension watches `notify::opacity` on each translucent window's actor. When the value changes and

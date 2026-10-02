@@ -1,30 +1,49 @@
 {
   "manifest_version": 3,
   "name": "PiP Anywhere",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "description": "Keep a browser window always on top of other apps and make it see-through.",
   "minimum_chrome_version": "116",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5Auex16rCaRI/1AgKhdpEdd14ppS5x1Jio6OYMqO1k6klXkobYgftopVZ0S5Y5fdcRwPzYlhe2b3ThT+/Q1CIrksLpedjZm3F29xiOPNmq9R7bV7L/RbvaTy0O7qs+EtkjwhI5t8hGb6VpJDKdBospXOGBtpXWp2LQqzREeRxycRMfQGOsi6NCA7OANT8C1u2vjCLZrMDGgA/CqS8ViBGThJUo2Evu9J0t00yJnzmTV/vxHNEms3UFOKSc3h/b3hhk7u7Bv44uWeLv2bQoxUPfOqB70lGMTu6ismrPpIdVJQHNMzvctzeiELUg9uPth6EqLZps7hhn1kZlR/UWCCwwIDAQAB",
-  "permissions": ["nativeMessaging"],
-  "background": { "service_worker": "background.js", "type": "module" },
+  "permissions": [
+    "nativeMessaging",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
   "action": {
     "default_title": "PiP Anywhere",
     "default_popup": "popup/popup.html",
-    "default_icon": { "16": "icons/icon16.png", "32": "icons/icon32.png" }
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
   },
   "commands": {
     "toggle-on-top": {
-      "suggested_key": { "default": "Alt+Shift+P" },
+      "suggested_key": {
+        "default": "Alt+Shift+P"
+      },
       "description": "Keep this window on top / release it"
     },
     "opacity-down": {
-      "suggested_key": { "default": "Alt+Shift+Down" },
+      "suggested_key": {
+        "default": "Alt+Shift+Down"
+      },
       "description": "Make this window more transparent"
     },
     "opacity-up": {
-      "suggested_key": { "default": "Alt+Shift+Up" },
+      "suggested_key": {
+        "default": "Alt+Shift+Up"
+      },
       "description": "Make this window more opaque"
     }
   },
-  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
 }

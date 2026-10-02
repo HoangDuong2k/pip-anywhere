@@ -64,13 +64,43 @@ res="$(host "$ROOT/native" '{"cmd":"set_above","above":true}')"
 [[ "$(field "$(probe)" "d['above']")" == "True" ]] || fail "window is not above: $(probe)"
 echo "ok   set_above(true): compositor reports the window above others"
 
+[[ "$(field "$res" "d['versions']")" == "{'host': 5, 'helper': 5, 'helper_installed': 5}" ]] \
+  || fail "versions: $res"
+echo "ok   replies carry host/helper versions"
+
+diag() { host "$ROOT/native" '{"cmd":"diagnostics"}'; }
+# Ubuntu's Tiling Assistant unpins a window whenever it tiles it; PiP Anywhere pins it again.
+testcall() { gdbus call --session --dest com.pipanywhere.Test --object-path /com/pipanywhere/Test \
+  --method "com.pipanywhere.Test.$1" "${@:2}"; }
+testcall UnmakeAbove >/dev/null
+sleep 0.3
+[[ "$(field "$(probe)" "d['above']")" == "True" ]] || fail "not re-pinned after another component unpinned it: $(probe)"
+[[ "$(field "$(diag)" "d['diagnostics']['gnome']['stats']['repins']")" == "1" ]] || fail "repin not recorded: $(diag)"
+echo "ok   re-pinned after another component (like Tiling Assistant) unpinned it"
+
+# Another app takes focus: the pinned window must stay on top of it.
+WAYLAND_DISPLAY=pipa-test GDK_BACKEND=wayland gnome-text-editor --standalone >/dev/null 2>&1 &
+OTHER_PID=$!
+sleep 4
+[[ "$(testcall ActivateOther)" == "(true,)" ]] || fail "second window did not open"
+sleep 0.5
+top="$(field "$(diag)" "[w['wm_class'] for w in d['diagnostics']['gnome']['stack'] if w['type'] == 0][0]")"
+[[ "$top" == "org.gnome.Calculator" ]] || fail "pinned window is not on top of the focused one: $(diag)"
+[[ "$(field "$(diag)" "d['diagnostics']['gnome']['focus']['wm_class']")" == "org.gnome.TextEditor" ]] || fail "focus: $(diag)"
+echo "ok   pinned window stays above another app that has focus (diagnostics: top=$top)"
+d="$(diag)"
+[[ "$(field "$d" "d['diagnostics']['gnome']['wayland']")" == "True" ]] || fail "diagnostics wayland flag: $d"
+[[ "$(field "$d" "d['diagnostics']['gnome']['stats']['layerFixes']")" == "0" ]] || fail "unexpected layer fix: $d"
+echo "ok   diagnostics: wayland session detected, no spurious layer fixes"
+kill $OTHER_PID 2>/dev/null || true
+testcall ActivateTest >/dev/null
+sleep 0.5
+
 res="$(host "$ROOT/native" '{"cmd":"set_opacity","opacity":0.5}')"
 [[ "$(field "$res" "d['window']['opacity']")" == "0.5" ]] || fail "set_opacity reply: $res"
 [[ "$(field "$(probe)" "d['actorOpacity']")" == "128" ]] || fail "actor opacity: $(probe)"
 echo "ok   set_opacity(0.5): compositor actor opacity is 128/255"
 
-testcall() { gdbus call --session --dest com.pipanywhere.Test --object-path /com/pipanywhere/Test \
-  --method "com.pipanywhere.Test.$1" "${@:2}"; }
 opacity_now() { field "$(probe)" "d['actorOpacity']"; }
 
 # GNOME Shell starts in the overview, where window animations are skipped; leave it so the real
@@ -93,9 +123,45 @@ sleep 0.3
 [[ "$(opacity_now)" == "128" ]] || fail "opacity not restored after an external reset: $(probe)"
 echo "ok   opacity is restored when something else resets it"
 
+# Clear on hover, with real pointer motion from a virtual mouse.
+center="$(testcall WindowCenter | python3 -c "import ast,sys,json; print(' '.join(str(v) for v in json.loads(ast.literal_eval(sys.stdin.read())[0])))")"
+pointer() { testcall MovePointer "$1" "$2" >/dev/null; }
+pointer 1270 790
+res="$(host "$ROOT/native" '{"cmd":"set_hover_reveal","enabled":true}')"
+[[ "$(field "$res" "d['window']['hover_reveal']")" == "True" ]] || fail "set_hover_reveal: $res"
+sleep 1.6 # past the preview of the last opacity change
+pointer $center
+sleep 0.6
+[[ "$(opacity_now)" == "255" ]] || fail "not revealed while hovered: $(probe)"
+echo "ok   clear on hover: fully opaque while the pointer is over the window"
+pointer 1270 790
+sleep 0.2
+[[ "$(opacity_now)" == "255" ]] || fail "faded back before the leave delay: $(probe)"
+sleep 0.6
+[[ "$(opacity_now)" == "128" ]] || fail "not translucent again after the pointer left: $(probe)"
+echo "ok   clear on hover: back to 50% after the pointer leaves (with a short delay)"
+pointer $center
+sleep 0.6
+res="$(host "$ROOT/native" '{"cmd":"set_opacity","opacity":0.4,"hover_reveal":true}')"
+sleep 0.3
+[[ "$(opacity_now)" == "102" ]] || fail "opacity change not previewed under the pointer: $(probe)"
+sleep 1.8
+[[ "$(opacity_now)" == "255" ]] || fail "not revealed again after the preview: $(probe)"
+echo "ok   clear on hover: an opacity change is previewed for 1.5 s, then the window clears again"
+host "$ROOT/native" '{"cmd":"set_hover_reveal","enabled":false}' >/dev/null
+sleep 0.5
+[[ "$(opacity_now)" == "102" ]] || fail "still revealed with the option off: $(probe)"
+echo "ok   clear on hover off: the window stays at its opacity under the pointer"
+host "$ROOT/native" '{"cmd":"set_opacity","opacity":0.5}' >/dev/null
+
 host "$ROOT/native" '{"cmd":"set_opacity","opacity":1}' >/dev/null
 host "$ROOT/native" '{"cmd":"set_above","above":false}' >/dev/null
 [[ "$(field "$(probe)" "d['actorOpacity']")" == "255" && "$(field "$(probe)" "d['above']")" == "False" ]] \
   || fail "reset: $(probe)"
 echo "ok   reset to opaque and not above"
+
+testcall UnmakeAbove >/dev/null
+sleep 0.3
+[[ "$(field "$(probe)" "d['above']")" == "False" ]] || fail "re-pinned after the user unpinned it: $(probe)"
+echo "ok   a window unpinned through PiP Anywhere is not pinned again"
 echo "PASS"

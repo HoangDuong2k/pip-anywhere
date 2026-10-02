@@ -6,6 +6,10 @@ extensions, logins and typing all work.
 
 - **Always on top**: the window stays above other apps when you click elsewhere or open another window.
 - **Opacity**: 20–100%, real transparency. You see the app behind it.
+- **Clear on hover** (optional, on by default): a see-through window becomes fully opaque while the
+  pointer is over it, and fades back shortly after the pointer leaves. When you change the opacity
+  with the pointer over the window, the new value is shown for 1.5 s first. Linux/GNOME only for
+  now: on Windows the option is hidden.
 
 | Action | Shortcut |
 |---|---|
@@ -58,6 +62,20 @@ Works with Chrome, Chromium, Brave, Edge and Vivaldi. The extension ID is fixed
 (`imcnedckfcpfibpcdjpcjgjaichejlee`) so the helper only accepts this extension.
 
 To remove the helper: `./scripts/uninstall-linux.sh`.
+
+## Troubleshooting
+
+- **"Copy diagnostics"** at the bottom of the popup copies a report: versions, the window stacking
+  order as the desktop sees it (window titles shortened to 60 characters), and the last helper log
+  lines. Paste it into a bug report.
+- **The popup says the helper is out of date**: run the installer again (Linux:
+  `./scripts/install-linux.sh`, Windows: `install.cmd`). On GNOME, also log out and back in. GNOME
+  only loads new extension code at login, and the popup tells you when that is the missing step.
+- **Ubuntu's tiling (Tiling Assistant)** unpins a window whenever it tiles it (Super+←/→, dragging to
+  an edge, layouts). PiP Anywhere pins it again automatically. Diagnostics count these repairs under
+  `stats.repins`.
+- **Helper log**: `~/.local/state/pip-anywhere/host.log` (Linux), `%LOCALAPPDATA%\PipAnywhere\host.log`
+  (Windows). One line per request with a full timestamp.
 
 ## Development
 

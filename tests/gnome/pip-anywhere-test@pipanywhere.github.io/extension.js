@@ -1,4 +1,6 @@
 // Test-only probe: reads and pokes what the compositor does to the focused window.
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import St from 'gi://St';
@@ -14,6 +16,11 @@ const IFACE = `
     <method name="Debug"><arg type="s" direction="out" name="json"/></method>
     <method name="Animating"><arg type="b" direction="out" name="animating"/></method>
     <method name="Animations"><arg type="s" direction="out" name="json"/></method>
+    <method name="UnmakeAbove"/>
+    <method name="MovePointer"><arg type="d" direction="in" name="x"/><arg type="d" direction="in" name="y"/></method>
+    <method name="WindowCenter"><arg type="s" direction="out" name="json"/></method>
+    <method name="ActivateTest"/>
+    <method name="ActivateOther"><arg type="b" direction="out" name="found"/></method>
     <method name="ForceActorOpacity"><arg type="i" direction="in" name="value"/></method>
   </interface>
 </node>`;
@@ -24,6 +31,9 @@ export default class TestProbe extends Extension {
         this._dbus.export(Gio.DBus.session, '/com/pipanywhere/Test');
         this._nameId = Gio.bus_own_name_on_connection(
             Gio.DBus.session, 'com.pipanywhere.Test', Gio.BusNameOwnerFlags.NONE, null, null);
+        // A virtual mouse, to test "Clear on hover" with real pointer motion.
+        this._pointer = Clutter.get_default_backend().get_default_seat()
+            .create_virtual_device(Clutter.InputDeviceType.POINTER_DEVICE);
     }
 
     disable() {
@@ -86,6 +96,32 @@ export default class TestProbe extends Extension {
     Animating() {
         const actor = this._window()?.get_compositor_private();
         return !!(actor?.get_transition('scale-x') || actor?.get_transition('opacity'));
+    }
+
+    MovePointer(x, y) {
+        this._pointer.notify_absolute_motion(GLib.get_monotonic_time(), x, y);
+    }
+
+    WindowCenter() {
+        const r = this._window().get_frame_rect();
+        return JSON.stringify([r.x + r.width / 2, r.y + r.height / 2]);
+    }
+
+    // Simulates Ubuntu's Tiling Assistant, which unpins a window whenever it tiles it.
+    UnmakeAbove() {
+        this._window().unmake_above();
+    }
+
+    ActivateTest() {
+        this._window().activate(global.get_current_time());
+    }
+
+    /** Focuses another normal window, like the user clicking a different app. */
+    ActivateOther() {
+        const other = global.display.list_all_windows().find(w =>
+            w !== this._window() && w.get_window_type() === 0);
+        other?.activate(global.get_current_time());
+        return !!other;
     }
 
     // Simulates any other Shell code resetting the opacity (like _unminimizeWindowDone does).

@@ -2,6 +2,8 @@
 export const HOST = "com.pipanywhere.host";
 export const OPACITY_STEP = 0.1;
 export const MIN_OPACITY = 0.2;
+/** Oldest helper (native host and GNOME extension) this extension works with. */
+export const REQUIRED_HELPER_VERSION = 5;
 
 /**
  * Sends one request. Always resolves to `{ ok: true, window }` or `{ ok: false, error, code }`;
@@ -21,7 +23,44 @@ export async function call(request) {
 
 export const getState = () => call({ cmd: "state" });
 export const setAbove = (above) => call({ cmd: "set_above", above });
-export const setOpacity = (opacity) => call({ cmd: "set_opacity", opacity });
+/** `hoverReveal` (optional) re-sends the "Clear on hover" preference with the change. */
+export const setOpacity = (opacity, hoverReveal) =>
+  call(hoverReveal === undefined ? { cmd: "set_opacity", opacity } : { cmd: "set_opacity", opacity, hover_reveal: hoverReveal });
+export const setHoverReveal = (enabled) => call({ cmd: "set_hover_reveal", enabled });
+
+/** "Clear on hover" preference, stored in chrome.storage.sync (on by default). */
+export async function getHoverRevealPref() {
+  const { hoverReveal = true } = await chrome.storage.sync.get("hoverReveal");
+  return hoverReveal;
+}
+export const saveHoverRevealPref = (enabled) => chrome.storage.sync.set({ hoverReveal: enabled });
+
+/** Whether the helper supports "Clear on hover" (GNOME helper 5+; not Windows yet). */
+export const supportsHoverReveal = (state) => typeof state?.window?.hover_reveal === "boolean";
+export const getDiagnostics = () => call({ cmd: "diagnostics" });
+
+/**
+ * Whether the installed helper is new enough, from the `versions` the host adds to every reply.
+ * Returns `{ state: "ok" }`, or `{ state: "reinstall" | "relogin", message }`.
+ */
+export function helperStatus(reply, os) {
+  if (!reply || reply.code === "host_missing") return { state: "ok" }; // the setup screen covers it
+  const v = reply.versions;
+  const reinstall = {
+    state: "reinstall",
+    message:
+      os === "win"
+        ? "The helper is out of date. Run install.cmd from the latest pip-anywhere-windows.zip."
+        : "The helper is out of date. Run ./scripts/install-linux.sh again.",
+  };
+  if (!v || !(v.host >= REQUIRED_HELPER_VERSION)) return reinstall;
+  if (v.helper != null && v.helper < REQUIRED_HELPER_VERSION) {
+    return v.helper_installed >= REQUIRED_HELPER_VERSION
+      ? { state: "relogin", message: "The helper was updated. Log out and back in to finish (GNOME loads extensions at login)." }
+      : reinstall;
+  }
+  return { state: "ok" };
+}
 
 /** Next opacity for the keyboard shortcuts, snapped to 10% steps. */
 export function stepOpacity(current, direction) {

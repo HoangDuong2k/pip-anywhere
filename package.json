@@ -1,7 +1,8 @@
 {
   "name": "pip-anywhere",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "private": true,
+  "type": "module",
   "description": "Keep a browser window always on top of other apps and make it see-through (Windows, Linux/GNOME).",
   "license": "MIT",
   "scripts": {

@@ -5,15 +5,17 @@
 //! - Opacity: `WS_EX_LAYERED` + `SetLayeredWindowAttributes(LWA_ALPHA)`. Windows keeps it across
 //!   minimise/restore, so nothing has to be re-applied.
 
-use windows_sys::Win32::Foundation::{CloseHandle, COLORREF, HANDLE, HWND};
+use serde_json::{json, Value};
+use windows_sys::Win32::Foundation::{CloseHandle, BOOL, COLORREF, HANDLE, HWND, LPARAM};
 use windows_sys::Win32::System::Threading::{
     OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetAncestor, GetForegroundWindow, GetLayeredWindowAttributes, GetPropW, GetWindowLongPtrW,
-    GetWindowTextW, GetWindowThreadProcessId, RemovePropW, SetLayeredWindowAttributes, SetPropW,
-    SetWindowLongPtrW, SetWindowPos, GA_ROOTOWNER, GWL_EXSTYLE, HWND_NOTOPMOST, HWND_TOPMOST,
-    LWA_ALPHA, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, WS_EX_LAYERED, WS_EX_TOPMOST,
+    EnumWindows, GetAncestor, GetForegroundWindow, GetLayeredWindowAttributes, GetPropW,
+    GetWindowLongPtrW, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible, RemovePropW,
+    SetLayeredWindowAttributes, SetPropW, SetWindowLongPtrW, SetWindowPos, GA_ROOTOWNER,
+    GWL_EXSTYLE, HWND_NOTOPMOST, HWND_TOPMOST, LWA_ALPHA, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+    WS_EX_LAYERED, WS_EX_TOPMOST,
 };
 
 use crate::protocol::{Backend, HostError, WindowInfo};
@@ -153,7 +155,45 @@ pub fn set_opacity_on(hwnd: HWND, opacity: f64) -> Result<(), HostError> {
     Ok(())
 }
 
+/// Visible, titled top-level windows, front to back (EnumWindows returns them in Z order).
+fn windows_in_z_order(limit: usize) -> Vec<HWND> {
+    unsafe extern "system" fn collect(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        // SAFETY: lparam is the &mut Vec passed to EnumWindows below, alive for the whole call.
+        let list = unsafe { &mut *(lparam as *mut Vec<HWND>) };
+        // SAFETY: hwnd comes from EnumWindows.
+        if unsafe { IsWindowVisible(hwnd) } != 0 && !title(hwnd).is_empty() {
+            list.push(hwnd);
+        }
+        1
+    }
+    let mut list: Vec<HWND> = Vec::new();
+    // SAFETY: the callback only touches `list`, which outlives the call.
+    unsafe { EnumWindows(Some(collect), &mut list as *mut Vec<HWND> as LPARAM) };
+    list.truncate(limit);
+    list
+}
+
+fn window_json(hwnd: HWND, foreground: Option<HWND>) -> Value {
+    let info = describe(hwnd);
+    json!({
+        "id": info.id,
+        "title": info.title.chars().take(60).collect::<String>(),
+        "exe": info.wm_class,
+        "topmost": info.above,
+        "opacity": (info.opacity * 100.0).round() / 100.0,
+        "foreground": Some(hwnd) == foreground,
+    })
+}
+
 impl Backend for Win32 {
+    fn diagnostics(&mut self) -> Value {
+        let foreground = target();
+        json!({
+            "target": foreground.map(|h| window_json(h, foreground)),
+            "z_order": windows_in_z_order(30).into_iter().map(|h| window_json(h, foreground)).collect::<Vec<_>>(),
+        })
+    }
+
     fn focused(&mut self) -> Result<Option<WindowInfo>, HostError> {
         Ok(target().map(describe))
     }

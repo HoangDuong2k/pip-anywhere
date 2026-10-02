@@ -3,6 +3,6 @@
   "name": "PiP Anywhere helper",
   "description": "Lets the PiP Anywhere browser extension keep a browser window always on top and change its opacity.",
   "shell-version": ["45", "46", "47", "48", "49", "50"],
-  "version": 3,
+  "version": 5,
   "url": "https://github.com/pip-anywhere/pip-anywhere"
 }

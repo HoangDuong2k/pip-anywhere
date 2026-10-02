@@ -3,13 +3,18 @@
 //!
 //! Requests:  {"cmd":"ping"} | {"cmd":"state"} | {"cmd":"set_above","above":bool}
 //!            | {"cmd":"set_opacity","opacity":number}
-//! Responses: {"ok":true,"window":{...}} | {"ok":false,"error":"...","code":"..."}
+//!            | {"cmd":"diagnostics"}
+//! Responses: {"ok":true,"window":{...},"versions":{...}}
+//!            | {"ok":false,"error":"...","code":"...","versions":{...}}
+//!
+//! On Windows the host is also the helper, so all three `versions` are this binary's.
 
 use std::io::{self, Read, Write};
 
 use serde_json::{json, Value};
 
-pub const VERSION: u32 = 3;
+/// Bump together with native/host.py and the extension's REQUIRED_HELPER_VERSION.
+pub const VERSION: u32 = 5;
 pub const MIN_OPACITY: f64 = 0.2;
 /// Chrome caps messages to the host at 4 GB; anything near that is garbage.
 const MAX_MESSAGE_BYTES: u32 = 1024 * 1024;
@@ -44,6 +49,10 @@ pub trait Backend {
     fn focused(&mut self) -> Result<Option<WindowInfo>, HostError>;
     fn set_above(&mut self, above: bool) -> Result<Option<WindowInfo>, HostError>;
     fn set_opacity(&mut self, opacity: f64) -> Result<Option<WindowInfo>, HostError>;
+    /// Platform details for bug reports (e.g. the window stacking order).
+    fn diagnostics(&mut self) -> Value {
+        Value::Null
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -52,6 +61,9 @@ pub enum Request {
     State,
     SetAbove(bool),
     SetOpacity(f64),
+    /// "Clear on hover" needs a resident process; not available on Windows yet.
+    SetHoverReveal,
+    Diagnostics,
 }
 
 pub fn parse(request: &Value) -> Result<Request, HostError> {
@@ -62,6 +74,8 @@ pub fn parse(request: &Value) -> Result<Request, HostError> {
     match obj.get("cmd").and_then(Value::as_str) {
         Some("ping") => Ok(Request::Ping),
         Some("state") => Ok(Request::State),
+        Some("diagnostics") => Ok(Request::Diagnostics),
+        Some("set_hover_reveal") => Ok(Request::SetHoverReveal),
         Some("set_above") => Ok(Request::SetAbove(
             obj.get("above").and_then(Value::as_bool).unwrap_or(false),
         )),
@@ -88,13 +102,36 @@ fn window_json(w: &WindowInfo) -> Value {
     })
 }
 
+fn versions() -> Value {
+    json!({ "host": VERSION, "helper": VERSION, "helper_installed": VERSION })
+}
+
 /// Handles one request and returns the response (never fails).
 pub fn handle(request: &Value, backend: &mut dyn Backend) -> Value {
+    let mut response = respond(request, backend);
+    response["versions"] = versions();
+    response
+}
+
+fn respond(request: &Value, backend: &mut dyn Backend) -> Value {
     let result = match parse(request) {
-        Ok(Request::Ping) => return json!({ "ok": true, "version": VERSION }),
+        Ok(Request::Ping) => return json!({ "ok": true }),
+        Ok(Request::Diagnostics) => {
+            return json!({
+                "ok": true,
+                "diagnostics": {
+                    "host": { "version": VERSION, "os": std::env::consts::OS, "arch": std::env::consts::ARCH },
+                    "windows": backend.diagnostics(),
+                },
+            })
+        }
         Ok(Request::State) => backend.focused(),
         Ok(Request::SetAbove(above)) => backend.set_above(above),
         Ok(Request::SetOpacity(opacity)) => backend.set_opacity(opacity),
+        Ok(Request::SetHoverReveal) => Err(HostError::new(
+            "unsupported",
+            "Clear on hover is not available on Windows yet.",
+        )),
         Err(e) => Err(e),
     };
     match result {
@@ -203,7 +240,7 @@ mod tests {
         let mut fake = Fake::default();
         assert_eq!(
             handle(&json!({"cmd": "ping"}), &mut fake),
-            json!({"ok": true, "version": VERSION})
+            json!({"ok": true, "versions": {"host": VERSION, "helper": VERSION, "helper_installed": VERSION}})
         );
         assert!(fake.calls.is_empty());
     }
@@ -259,7 +296,34 @@ mod tests {
         let mut fake = Fake::default();
         assert_eq!(
             handle(&json!({"cmd": "state"}), &mut fake),
-            json!({"ok": false, "error": "No focused window.", "code": "no_window"})
+            json!({"ok": false, "error": "No focused window.", "code": "no_window", "versions": versions()})
         );
+    }
+
+    #[test]
+    fn hover_reveal_is_reported_as_unsupported() {
+        let mut fake = Fake::with_window();
+        let r = handle(
+            &json!({"cmd": "set_hover_reveal", "enabled": true}),
+            &mut fake,
+        );
+        assert_eq!(r["code"], json!("unsupported"));
+        // Sent along with an opacity change, the preference is ignored and the change still works.
+        let r = handle(
+            &json!({"cmd": "set_opacity", "opacity": 0.5, "hover_reveal": true}),
+            &mut fake,
+        );
+        assert_eq!(r["window"]["opacity"], json!(0.5));
+        assert!(r["window"].get("hover_reveal").is_none());
+    }
+
+    #[test]
+    fn diagnostics_include_host_and_backend_details() {
+        let mut fake = Fake::default();
+        let r = handle(&json!({"cmd": "diagnostics"}), &mut fake);
+        assert_eq!(r["ok"], json!(true));
+        assert_eq!(r["diagnostics"]["host"]["version"], json!(VERSION));
+        assert_eq!(r["diagnostics"]["windows"], Value::Null);
+        assert_eq!(r["versions"]["host"], json!(VERSION));
     }
 }

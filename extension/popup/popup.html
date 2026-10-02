@@ -11,6 +11,8 @@
       <h1>PiP Anywhere</h1>
     </header>
 
+    <p id="warning" role="status" hidden></p>
+
     <main id="controls" hidden>
       <p class="window" id="window-title" title=""></p>
 
@@ -26,6 +28,14 @@
         <span><strong>Opacity</strong></span>
         <input id="opacity" type="range" min="20" max="100" step="5" />
         <output id="opacity-value"></output>
+      </label>
+
+      <label class="row switch" id="hover-row" hidden>
+        <span>
+          <strong>Clear on hover</strong>
+          <small>Fully visible while the pointer is over a see-through window.</small>
+        </span>
+        <input id="hover-reveal" type="checkbox" role="switch" />
       </label>
     </main>
 
@@ -51,6 +61,10 @@
       <span><kbd data-command="toggle-on-top"></kbd> pin · <kbd data-command="opacity-down"></kbd>/<kbd data-command="opacity-up"></kbd> opacity</span>
       <a href="#" id="shortcuts">Shortcuts</a>
     </footer>
+    <div class="diagnostics">
+      <button id="diagnostics" type="button" title="Copies window stacking, versions and recent helper log (window titles included) for a bug report">Copy diagnostics</button>
+      <span id="diagnostics-status" role="status"></span>
+    </div>
     <script type="module" src="popup.js"></script>
   </body>
 </html>
